@@ -5,12 +5,6 @@
  // 引入 restify
  const restify = require('restify');
 
- // 响应函数, 后面接着 next()
- const respond = (req, res, next) => {
-   res.send(`hello, ${req.params.name}`);
-   next();
- }
-
  // 创建 restify 服务器;
  const server = restify.createServer();
 
@@ -21,6 +15,7 @@
  // 典型的应用场景包括记录所有请求的信息，类似于 Apache httpd 服务器的访问日志功能，以及添加计数器来记录访问相关的性能指标。
 
  server.pre(((req, res, next) => {
+   console.log('pre');
    console.log('req: %s', req.href());
    return next();
  }));
@@ -32,15 +27,14 @@
  // 对于所有的路由，该处理器链中的处理器都会执行。该处理器链适合执行用户认证、应用相关的请求清理和响应格式化等工作。
  // 典型的应用场景包括检查用户是否完成认证，对请求和响应的 HTTP 头进行修改等。
 
- server.use(restify.plugins.queryParser); // 使用 restify 自带的插件，也可以使用其他的插件;
+//  server.use(restify.plugins.queryParser); // 使用 restify 自带的插件，也可以使用其他的插件;
  server.use(((req, res, next) => {
+   console.log('use');
    req.headers.accept = 'application/json';
    return next();
  }));
 
  // 服务器的 routes 配置
-server.get('/hello/:name', respond);
-server.head('/hello/:name', respond);
 server.post('/foo',
   (req, res, next) => {
     req.someData = 'handler chain data';
@@ -54,6 +48,7 @@ server.post('/foo',
 server.get('/handler_chain', [
   // handlers 数组
   (req, res, next) => {
+    console.log('http handler');
     res.header('X_Test', 'test');
     return next();
   },
@@ -71,4 +66,14 @@ server.get('/handler_chain', [
 // 启动 restify 服务器;
 server.listen(8080, () => {
   console.log('%s listening at %s', server.name, server.url);
+});
+
+// 错误捕捉
+server.on('InternalServer', (req, res, err, cb) => {
+  console.log('500');
+  console.log(err);
+});
+server.on('restifyError', (req, res, err, cb) => {
+  console.log('restify error');
+  console.log(err);
 });
