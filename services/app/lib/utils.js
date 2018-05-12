@@ -1,0 +1,93 @@
+const pkg = require('../../package');
+const path = require('path');
+const fs = require('fs');
+const util = require('util');
+
+/**
+ * 以下是项目所依赖的库包
+ * 第三方库包禁止直接使用
+ * 必须通过ut["xxxx"]的方式引用，这样有以下几个好处
+ * 1. 避免其他模块头部大量的 require
+ * 2. 当某个模块需要替换的时候不至于要替换n个地方
+ * 3. 未完待续
+ */
+const U = {};
+
+/**
+ * 以下是项目所依赖的库包
+ * 第三方库包禁止直接使用
+ * 必须通过ut["xxxx"]的方式引用，这样有以下几个好处
+ * 1. 避免其他模块头部大量的 require
+ * 2. 当某个模块需要替换的时候不至于要替换n个地方
+ * 3. 未完待续
+ */
+Object.keys(pkg.dependencies).forEach((k) => {
+  /** 包名的中划线转成驼峰，方便通过点(.)来操作 */
+  /* eslint-disable global-require, import/no-dynamic-require */
+  U[k.replace(/(-\w)/g, m => m[1].toUpperCase())] = require(k);
+  /* eslint-enable global-require, import/no-dynamic-require */
+});
+
+/** 个别特殊处理的库包 alias */
+U.rest = U.openRest;
+U._ = U.lodash;
+U.cached = U.openCache;
+U.util = util;
+U.path = path;
+U.fs = fs;
+
+U.mkdirp = (dir) => {
+  if (U.fs.existsSync(dir)) return null;
+  const parent = U.path.dirname(dir);
+  if (!U.fs.existsSync(parent)) U.mkdirp(parent);
+  return U.fs.mkdirSync(dir);
+};
+
+let utils = {
+  model: U.rest.model,
+
+  hasOwnProperty: Object.prototype.hasOwnProperty,
+
+  /**
+   * 将私有ip和权限组的对应关系合并之后转换成需要的格式
+   * "xxx.xxx.xxx.xxx": [Array] switchs
+   */
+  privateIpMerge: (switchs, obj) => {
+    const ret = {};
+    U._.each(obj, (ips, key) => {
+      /**
+       * 全部功能的暂时先跳过，后续单独处理
+       *  因为担心其被其他的权限覆盖
+       */
+      if (key === '*') return;
+      for (const ip of ips) {
+        ret[ip] = ret[ip] ? ret[ip].concat(switchs[key]) : switchs[key];
+      }
+    });
+    U._.each(ret, (v, k) => {
+      ret[k] = U._.uniq(v);
+    });
+    if (obj['*']) {
+      for (const ip of obj['*']) {
+        ret[ip] = '*';
+      }
+    }
+    return ret;
+  },
+
+  /** 一个空函数 */
+  noop: () => {},
+
+  /** 解码base64的图片 */
+  decodeBase64Image: (dataString) => {
+    if (!dataString) return null;
+    const matches = dataString.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+    if (!matches) return null;
+    return {
+      type: matches[1],
+      data: new Buffer(matches[2], 'base64'),
+    };
+  },
+};
+
+module.exports = utils = Object.assign({}, U.rest.utils, utils, U);
